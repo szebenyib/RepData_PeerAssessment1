@@ -3,9 +3,15 @@ title: "Reproducible Research: Peer Assessment 1"
 output: 
 html_document:
 keep_md: true
+self_contained: false
 ---
 
 ##Setup
+Setup figures location
+```{r}
+library(knitr)
+opts_chunk$set(fig.path="figure/")
+```
 Needed for time units to see them in English
 ```{r}
 Sys.setlocale("LC_TIME", "C")
