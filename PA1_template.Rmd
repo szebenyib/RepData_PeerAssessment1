@@ -1,25 +1,243 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
 output: 
-  html_document:
-    keep_md: true
+html_document:
+keep_md: true
 ---
 
+##Setup
+Needed for time units to see them in English
+```{r}
+Sys.setlocale("LC_TIME", "C")
+```
+Loading libraries
+```{r}
+library(lattice) #plotting
+library(xtable) #table output
+```
 
 ## Loading and preprocessing the data
-
+```{r message=FALSE}
+working_path <- "/home/szebenyib/repr/RepData_PeerAssessment1/"
+unzip(zipfile = paste(working_path,
+                      "activity.zip",
+                      sep=""),
+                exdir = working_path,
+                overwrite = FALSE)
+activity <- read.csv(file = paste(working_path,
+                                  "activity.csv",
+                                  sep=""),
+                     colClasses = c("numeric",
+                                    "character",
+                                    "numeric"),
+                     na.strings = "NA",
+                     header = TRUE)
+activity$date <- as.Date(activity$date)
+```
+A brief overview of the activity data frame:
+```{r}
+str(activity)
+```
 
 
 ## What is mean total number of steps taken per day?
 
 
+###The total number of steps taken per day:
+```{r results = "asis"}
+total_steps_per_day <- as.table(tapply(X = activity$steps,
+                                       INDEX = activity$date,
+                                       FUN = sum))
+table <- xtable(total_steps_per_day)
+print(table,
+      type = "html")
+```
+
+###A histogram of the total steps taken per day:
+```{r fig.height = 4}
+hist(x = total_steps_per_day,
+     col = "green",
+     xlab = "Steps",
+     ylab = "Frequency",
+     main = "A historgram of steps")
+```
+
+###Mean and median of the total number of steps taken per day:
+```{r results = "asis"}
+mean_of_total_steps_per_day <- tapply(X = activity$steps,
+                                      INDEX = activity$date,
+                                      FUN = mean)
+median_of_total_steps_per_day <- tapply(X = activity$steps,
+                                        INDEX = activity$date,
+                                        FUN = median,
+                                        na.rm = TRUE)
+mean_median_table <- cbind(mean_of_total_steps_per_day,
+                            median_of_total_steps_per_day)
+colnames(mean_median_table) <- c("Mean of total steps per day",
+                                 "Median of total steps per day")
+table <- xtable(mean_median_table)
+print(table,
+      type = "html")
+```
+
+The median is zero when there are values. The reason for this is that five
+minutes were chosen for the length of the intervals. Therefore there are
+many zeroes and it is no surprise that the value in the 'middle' is zero.
+Please see this output as an example:
+```{r}
+sort(activity[activity$date == "2012-11-29", "steps"])
+```
+
 
 ## What is the average daily activity pattern?
 
+
+###The time series plot
+```{r fig.height = 4}
+average_steps_per_interval <- tapply(X = activity$steps,
+                                     INDEX = as.factor(activity$interval),
+                                     FUN = mean,
+                                     na.rm = TRUE)
+plot(y = average_steps_per_interval,
+     x = names(average_steps_per_interval),
+     type = "l",
+     col = "green",
+     xlab = "Minute of the day",
+     ylab = "Average number of steps",
+     main = "Average number of steps taken over a day")
+```
+
+###The most active interval (that contains the most number of steps)
+```{r}
+most_active <- which(average_steps_per_interval == max(
+                       average_steps_per_interval))
+```
+It is the interval that begins at the `r names(most_active)`.th minute,
+it is the `r most_active`. interval out of
+`r length(average_steps_per_interval)` intervals.
 
 
 ## Imputing missing values
 
 
+###The total number of rows with missing values
+```{r}
+number_of_cases <- dim(activity)[1]
+full_cases <- sum(complete.cases(activity))
+partial_cases <- number_of_cases - full_cases
+```
+There are `r number_of_cases` cases in the data frame, and `r partial_cases`
+have NA values.
+
+It is always the steps variable that has missing values:
+```{r}
+sum(is.na(activity$date))
+sum(is.na(activity$interval))
+```
+
+###Creating a new dataset where NA values are filled in the steps with the mean for that 5 minute interval
+Creating new data frame
+```{r}
+activity_imputed <- activity
+```
+Calculate the values used to replace NAs.
+```{r}
+means <- tapply(X = activity$steps,
+                INDEX = activity$interval,
+                FUN = mean,
+                na.rm=TRUE)
+```
+Repeat the values as long as there is data in the data frame
+```{r}
+activity_imputed$imputed_steps <- means
+```
+Add the imputed values only where NAs are found.
+```{r}
+activity_imputed[is.na(activity_imputed$steps), "steps"] <- activity_imputed[
+  is.na(activity_imputed$steps), "imputed_steps"]
+```
+Remove the temporary column
+```{r}
+activity_imputed <- activity_imputed[ , 1:3]
+```
+
+###Creating a histogram of the total number of steps taken each day with imputed data.
+```{r}
+total_steps_per_day_imputed <- as.table(tapply(X = activity$steps,
+                                               INDEX = activity$date,
+                                               FUN = sum))
+hist(x = total_steps_per_day_imputed, 
+     col = "purple",
+     xlab = "Steps (imputed)",
+     ylab = "Frequency",
+     main = "A historgram of steps (imputed)")
+```
+
+###Mean of the total number of steps (imputed) taken per day:
+```{r results = "asis"}
+mean_of_total_steps_per_day_imputed <- tapply(X = activity_imputed$steps,
+                                              INDEX = activity_imputed$date,
+                                              FUN = mean)
+median_of_total_steps_per_day_imputed <- tapply(X = activity_imputed$steps,
+                                                INDEX = activity_imputed$date,
+                                                FUN = median,
+                                                na.rm = TRUE)
+mean_median_table <- cbind(mean_median_table,
+                           mean_of_total_steps_per_day_imputed,
+                           median_of_total_steps_per_day_imputed)
+colnames(mean_median_table) <- c("Mean of total steps per day",
+                                 "Median of total steps per day",
+                                 "Mean of total steps per day imputed",
+                                 "Median of total steps per day imputed")
+table <- xtable(mean_median_table)
+print(table,
+      type = "html")
+```
+
+###My interpretation
+The means have not changed since imputing the means will not move their value. The medians have moved away from NA values to the same value as every interval has received the average that is typical for that interval. And therefore the values are the same for the days where all the values were missing.
+
 
 ## Are there differences in activity patterns between weekdays and weekends?
+###Creating a new factor with two levels inidicating weekdays and weekends
+```{r}
+activity_imputed$weekday_or_weekend <- "weekday"
+activity_imputed$weekday_or_weekend[grep("Saturday|Sunday",
+                                         weekdays(activity_imputed$date))] <- "weekend"
+activity_imputed$weekday_or_weekend <- factor(
+  activity_imputed$weekday_or_weekend)
+```
+
+###The average number of steps taken 
+```{r}
+mean_of_total_steps_per_weekday_imputed <- tapply(
+  X = activity_imputed[activity_imputed$weekday_or_weekend == "weekday", 
+                       "steps"],
+  INDEX = activity_imputed[activity_imputed$weekday_or_weekend == "weekday", 
+                       "interval"],
+  FUN = mean)
+mean_of_total_steps_per_weekend_imputed <- tapply(
+  X = activity_imputed[activity_imputed$weekday_or_weekend == "weekend", 
+                       "steps"],
+  INDEX = activity_imputed[activity_imputed$weekday_or_weekend == "weekend", 
+                       "interval"],
+  FUN = mean)
+par(mfrow = c(1, 2))
+plot(y = mean_of_total_steps_per_weekday_imputed,
+     x = names(mean_of_total_steps_per_weekday_imputed),
+     type = "l",
+     col = "green",
+     xlab = "Minute of the day",
+     ylab = "Average number of steps",
+     main = "Weekdays")
+plot(y = mean_of_total_steps_per_weekend_imputed,
+     x = names(mean_of_total_steps_per_weekend_imputed),
+     type = "l",
+     col = "orange",
+     xlab = "Minute of the day",
+     ylab = "Average number of steps",
+     main = "Weekends")
+```
+
+###My interpretation
+The sleeping pattern is clearly visible on both weekdays and weekends. Weekdays tend to start earlier and they are more active from a matter of steps in the earlier hours. In contrast to that weekends are more active in the afternoon.
